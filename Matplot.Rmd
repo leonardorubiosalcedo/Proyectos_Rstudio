@@ -1,0 +1,382 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(tidyverse)
+ library(visdat)
+ library(cowplot)
+ library(ggrepel)
+ library(mapproj) # polar orthographic map projection
+ library(ggthemes)
+ library(here)
+ library(extrafont)
+ library(extrafont)
+ library(knitr)
+ library(magick)
+```
+
+```{r}
+penguins <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-07-28/penguins.csv')
+kable(head(penguins), caption = "Penguins data. Source: Gorman, Williams and Fraser, 2014 ")
+```
+
+```{r}
+str(penguins)
+```
+```{r}
+arrange(penguins, species, desc(body_mass_g)) %>% head()
+```
+```{r}
+penguins %>%
+   count(island, sort = TRUE, name="cantidad")
+```
+```{r}
+penguins %>% filter(year == 2007) %>% head()
+```
+```{r}
+penguins %>% filter(year == 2007 & species== "Adelie") %>% head()
+```
+Operador o 
+```{r}
+penguins %>% filter(bill_depth_mm > 10 | bill_depth_mm < 20 ) %>% head()
+```
+
+```{r}
+penguins[penguins$year %in% c(2007,2918) | penguins$species== "Adelie",c(1,2,5,8)] %>% head()
+```
+```{r}
+penguins %>%
+
+   filter(year == 2007, island=="Torgersen") %>%
+
+   dplyr::select(island, bill_length_mm, body_mass_g, sex) %>%
+
+   head(n=10)
+```
+
+```{r}
+penguins %>%
+
+   filter(year %in% c(2007,2918) , penguins$species== "Adelie") %>%
+   dplyr::select(island ,bill_length_mm, body_mass_g , sex, year, species) %>%
+   head(n=10)
+```
+
+```{r}
+penguins %>%
+
+   group_by(island,year) %>%
+
+   summarize("min" = min(bill_length_mm, na.rm = TRUE),
+             "max" = max(bill_length_mm, na.rm = TRUE),
+             "median (Q2)" = median(bill_length_mm, na.rm = TRUE),
+             "mean" = mean(bill_length_mm, na.rm = TRUE),
+              Q3 = quantile(bill_length_mm,  probs = 0.75, na.rm = TRUE),
+             "max Q4" = max(bill_length_mm, na.rm = TRUE),
+             "suma" = sum(bill_length_mm, na.rm = TRUE)
+
+   ) %>% head(50)
+```
+
+
+```{r}
+penguins %>%
+
+   group_by(year) %>%
+
+   summarize("min" = min(body_mass_g, na.rm = TRUE),
+             "Q1" = quantile(body_mass_g,  probs = 0.25, na.rm = TRUE),
+             "median (Q2)" = median(body_mass_g, na.rm = TRUE),
+             "mean" = mean(body_mass_g, na.rm = TRUE),
+             Q3 = quantile(body_mass_g,  probs = 0.75, na.rm = TRUE),
+             "max Q4" = max(body_mass_g, na.rm = TRUE)
+
+   ) %>% head()
+```
+
+```{r}
+penguins %>%
+   group_by( species , island) %>%
+   summary (body_mass_g)
+```
+```{r}
+penguins %>%
+   select(year,species,island,bill_length_mm,body_mass_g) %>%
+   mutate("body_mass_kg" = bill_length_mm * (body_mass_g / 1000) , 
+          "redondeo_bill_length_mm" = round(bill_length_mm),) %>%
+   filter(bill_length_mm> 20 & bill_length_mm<40)%>%
+   arrange(desc(year))%>%
+   head(10)
+```
+
+```{r}
+rename(penguins, "flipper length (mm)"=flipper_length_mm, "body mass (g)"=body_mass_g) %>% head()
+```
+
+```{r}
+dplyr::select(penguins %>% filter(year == 2007), species, flipper_length_mm, body_mass_g, sex) %>% head()
+```
+
+```{r}
+dplyr::select(penguins %>% filter(year %in% c(2007,2008) & island == "Torgersen"), c(1,2,3,4,5,6)) %>% head()
+```
+```{r}
+penguins %>%
+   transmute(dimension_metros = (bill_length_mm /1000) * (flipper_length_mm/1000 )) %>%head(10)
+```
+
+```{r}
+library(forcats)
+```
+
+```{r}
+penguins %>%
+   count(island, sort = TRUE, name="cantidad") %>%
+   mutate(island = fct_infreq(island))
+```
+
+##fct_reorder
+
+##fct_relevel
+
+##fct_lump
+
+```{r}
+penguins %>%
+   count(island,year,sex, sort = TRUE, name="cantidad") %>%
+   mutate(island = fct_infreq(island))
+```
+
+```{r}
+antarctica <- map_data("world", region = "Antarctica")
+ 
+df_penguinloc <-
+
+   tibble(
+
+     island = c("Dream", "Biscoe", "Torgersen"),
+
+     lat_y = c(-64.7333, -65.4333, -64.7666636),
+
+     long_x = c(-64.2333, -65.5000, -64.083333)
+
+   ) 
+ 
+df_penguinloc
+```
+
+```{r}
+library('ggplot2')
+ 
+penguins_2007 <- penguins %>% filter(year == 2007)
+ 
+ggplot(penguins_2007, 
+
+        aes(x = flipper_length_mm, y = body_mass_g, 
+
+        color = species,
+
+        shape = island)) + 
+
+   geom_point() +
+
+   scale_x_log10() + 
+
+   labs(
+
+     title = "Body mass (grs.) vs Flipper length (mms.) by Species",
+
+     subtitle = "year 2007",
+
+     caption = " Summary of data, ref 2007",
+
+     x = "Longitud de la aleta (mms.)",
+
+     y = "Masa corporal (grs.)"
+
+   )
+```
+```{r}
+library(tibble)
+
+ as_tibble(penguins) %>% head()
+```
+```{r}
+tibble(x = penguins$flipper_length_mm, y = penguins$body_mass_g, z = x / y)
+```
+
+```{r}
+tribble(
+
+   ~x, ~y,  ~z,
+
+   "a", 2,  3.6,
+
+   "b", 1,  8.5
+
+ )
+```
+
+```{r}
+df_penguinloc <- penguins %>% 
+
+   group_by(island) %>% 
+
+   summarise(amount = n(), .groups = 'drop') %>% 
+
+   left_join(df_penguinloc, by = "island")
+ 
+df_penguinloc
+```
+
+```{r}
+d <- penguins %>% filter(year==2009) %>%
+
+   mutate(island = factor(island),
+
+          island = factor(island, levels = rev(levels(island)))) %>%
+
+   ggplot() +
+
+   stat_count(aes(island, fill = species), alpha = 0.8) +
+
+   annotate("text", y=3,  x= "Torgersen", label= "Torgersen", color = "#1874CD")+
+
+   annotate("text", y=3,  x= "Dream", label= "Dream", color = "#c02728")+
+
+   annotate("text", y=3,  x= "Biscoe", label= "Biscoe", color = "#53868B")+
+
+   scale_fill_manual(values = c("#66c2a5","#fc8d62","#8da0cb")) +
+
+   scale_y_reverse()+
+
+   labs(caption = "Source: Gorman, Williams and Fraser, 2014 | Graphics: Julián Avila-Jiménez") +
+
+   theme_minimal() +
+
+   theme(legend.position = c(0.2,0.3),
+
+         axis.title = element_blank(),
+
+         axis.text.x = element_blank(),
+
+         panel.grid = element_blank(),
+
+         plot.background = element_rect(fill="#f9f9f9", color = "#f9f9f9"))
+
+ d
+```
+
+```{r}
+p <- ggplot(antarctica, aes(long, lat, group = group)) +
+
+   geom_polygon(fill = "#506B8E", alpha = .8) +
+
+   coord_map("ortho", orientation = c(-90, 0, 0),
+
+             xlim = c(-62, -55),
+
+             ylim = c(-75, - 60)) +
+
+   geom_text_repel(df_penguinloc, mapping=aes(long_x, lat_y, label = island),
+
+                   group=1, color = c("#53868B", "#c02728", "#1874CD"),
+
+                    box.padding = 0.5,
+
+                    nudge_y = 1,  nudge_x = -2, min.segment.length = 0) +
+
+   geom_point(df_penguinloc, mapping=aes(long_x, lat_y,
+
+                                         group = 1,
+
+                                         colour = island),
+
+              alpha =.7)+
+
+   scale_color_manual(values = c("#53868B", "#c02728", "#1874CD"))+
+
+   labs(title = "Penguins in Palmer Archipelago",
+
+        subtitle = "Recorded penguins in 2009 and their nesting Islands") +
+
+   theme_map() +
+
+   theme(legend.position = "none",
+
+         plot.title = element_text(hjust = 0.5, size = 20),
+
+         plot.subtitle =  element_text(hjust = 0.5),
+
+         plot.background = element_rect(fill="#f9f9f9", color = "#f9f9f9"))
+
+ p
+```
+
+```{r}
+inset <- ggplot(antarctica, aes(long, lat, group = group)) +
+
+   geom_polygon(fill = "#506B8E", alpha = .5) +
+
+   coord_map("ortho", orientation = c(-90, 0, 0)) +
+
+   geom_point(df_penguinloc, mapping=aes(long_x, lat_y,
+
+                                         group = island,
+
+                                         colour = island),
+
+              alpha =.5, size = 1)+
+
+   annotate("rect", color="black", fill = "transparent",
+
+            xmin = -68, xmax = -54,
+
+            ymin = -75, ymax = -60)+
+
+   labs(title = "Antarctica") +
+
+   theme_map() +
+
+   theme(legend.position = "none",
+
+         panel.grid.major.y = element_line(colour="grey"),
+
+         plot.title = element_text(hjust = 0.5),
+
+         plot.background = element_rect(fill="#f9f9f9", color = "#f9f9f9"))
+
+ inset
+```
+
+```{r}
+a <- ggdraw(p) +
+
+   draw_plot(inset, .47, .38, .5, .4)
+
+ a
+```
+
+```{r}
+p1 <- plot_grid(a,d, ncol = 1, rel_widths = c(4, 2), rel_heights = c(2,1))+
+
+   theme(plot.background = element_rect(fill="#f9f9f9")) +
+
+   labs(title = "Penguins in Palmer Archipelago")
+ 
+penguin <-here("/penguin.jfif")
+
+
+ p2 <- ggdraw() + 
+
+   draw_plot(p1) +
+
+   draw_image(penguin, x = 0.24, y = 0.38, hjust = 1, width = 0.20, height = 0.25)
+
+ p2
+```
+
