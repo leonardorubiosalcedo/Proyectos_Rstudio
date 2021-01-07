@@ -1,0 +1,528 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r chung1, include=TRUE}
+#install.packages("nycflights13")
+library(nycflights13)
+library(tidyverse)
+```
+
+
+```{r chung2, include=TRUE}
+planes %>%
+  count(tailnum) %>%
+  filter(n > 1)
+```
+
+
+```{r chung3, include=TRUE}
+weather %>%
+  count(year, month, day, hour, origin) %>%
+  filter(n > 1)
+```
+
+
+```{r chung4, include=TRUE}
+flights %>%
+  count(year, month, day, flight) %>%
+  filter(n > 1)%>%
+  tail(10)
+```
+
+```{r chung5, include=TRUE}
+flights %>%
+  count(year, month, day, tailnum) %>%
+  filter(n > 1)%>%
+  tail(10)
+```
+
+```{r chung6, include=TRUE}
+flights2 <- flights %>%
+  select(year:day, hour, origin, dest, tailnum, carrier)%>%
+  tail(10)
+flights2
+```
+
+```{r chung7, include=TRUE}
+flights2 %>%
+  select(-origin, -dest) %>%
+  left_join(airlines, by = "carrier")%>%
+  tail(10)
+```
+
+```{r chung8, include=TRUE}
+flights2 %>%
+  select(-origin, -dest) %>%
+  mutate(name = airlines$name[match(carrier, airlines$carrier)]) 
+```
+
+
+```{r chung9, include=TRUE}
+flights2 %>%
+  select(-origin, -dest) %>%
+  right_join(airlines, by = "carrier")%>%
+  tail(10)
+```
+
+
+```{r chung10, include=TRUE}
+airlines %>%
+  select(-name) %>%
+  mutate(name = flights2$carrier[match(carrier, flights2$carrier)])
+```
+
+```{r chung11, include=TRUE}
+flights2 %>%
+  left_join(weather)%>%
+  tail(10)
+
+```
+
+
+```{r chung12, include=TRUE}
+weather %>%
+  left_join(flights2)%>%
+  tail(10)
+```
+
+```{r chung13, include=TRUE}
+flights2 %>%
+  right_join(weather)%>%
+  tail(10)
+```
+
+```{r chung14, include=TRUE}
+weather %>%
+  right_join(flights2)%>%
+  tail(10)
+```
+
+```{r chung15, include=TRUE}
+flights2 %>%
+  left_join(planes, by = "tailnum")%>%
+  tail(10)
+```
+
+```{r chung16, include=TRUE}
+flights2 %>%
+  left_join(airports, c("dest" = "faa"))%>%
+  tail(10)
+```
+
+```{r chung17, include=TRUE}
+flights2 %>%
+  right_join(airports, c("dest" = "faa"))%>%
+  tail(10)
+```
+
+```{r chung18, include=TRUE}
+flights2 %>%
+  left_join(airports, c("origin" = "faa"))%>%
+  tail(10)
+```
+
+
+```{r chung19, include=TRUE}
+flights2 %>%
+  right_join(airports, c("origin" = "faa"))%>%
+  tail(10)
+```
+
+```{r chung20, include=TRUE}
+airports %>%
+  semi_join(flights, c("faa" = "dest")) %>%
+  ggplot(aes(lon, lat)) +
+    borders("state") +
+    geom_point(color = "orange") +
+    coord_quickmap()
+```
+
+```{r chung21, include=TRUE}
+airports %>%
+  semi_join(flights, c("faa" = "dest")) %>%
+  ggplot(aes(lon, lat, shape = dst)) +
+    borders("state") +
+    geom_point(color = "orange") +
+    coord_quickmap()
+```
+
+#Anti Join
+
+```{r chung22, include=TRUE}
+flights %>%
+  anti_join(planes, "tailnum")%>%
+  tail(10)
+```
+
+```{r chung23, include=TRUE}
+planes %>%
+  anti_join(flights, "tailnum")
+```
+
+# Semi join & Anti Join
+
+```{r chung24, include=TRUE}
+airports %>%
+  rename(dest = faa) %>%
+  semi_join(flights) %>%
+  ggplot(aes(lon, lat, size = alt)) +
+    borders("state") +
+    geom_point(color = "orange") +
+    coord_quickmap()
+```
+
+
+```{r chung25, include=TRUE}
+flights %>%
+  anti_join(airports %>%
+              rename(dest = faa))%>%
+  tail(10)
+```
+ 
+```{r chung26, include=TRUE}
+airports %>%
+  rename(origin = faa) %>%
+  semi_join(flights)
+```
+
+```{r chung27, include=TRUE}
+flights %>% filter(dep_time >= 600, dep_time <= 605)%>%
+  tail(10)
+```
+
+
+```{r chung28, include=TRUE}
+flights %>% filter(arr_time >= 800, year== 2013)%>%
+  tail(10)
+```
+
+## Hacer un top
+
+```{r chung29, include=TRUE}
+top_dest <- flights %>%
+  count(dest, sort = TRUE) %>%
+  head(10)
+top_dest
+```
+
+```{r chung30, include=TRUE}
+top_dest2 <- flights %>%
+  count(dest, sort = TRUE) %>%
+  tail(10)
+top_dest2
+```
+
+```{r chung31, include=TRUE}
+top_dest3 <- flights %>%
+  count(dest, sort = TRUE) %>%
+  tail(10)
+top_dest3
+```
+
+```{r chung32, include=TRUE}
+flights %>%
+    select(carrier, dep_delay) %>%
+    filter(dep_delay > 60) %>%
+    head()
+```
+
+```{r chung33, include=TRUE}
+flights %>%
+    select(dep_delay, hour, origin) %>%
+    filter(hour >600) %>%
+    head()
+```
+
+```{r chung34, include=TRUE}
+#flights %>%
+  #filter(origin %in% top_dest2t$origin)
+```
+
+```{r chung35, include=TRUE}
+flights %>%
+  semi_join(top_dest)%>%
+  tail(10)
+```
+
+```{r chung36, include=TRUE}
+flights %>%
+  semi_join(top_dest)%>%
+  tail(10)
+```
+
+```{r chung37, include=TRUE}
+flights %>%
+  anti_join(planes, by = "tailnum") %>%
+  count(tailnum, sort = TRUE)%>%
+  tail(10)
+```
+
+
+## Grupo by summarize
+
+Meses en los que se recorrió más distancia
+```{r chung38, include=TRUE}
+flights %>%
+  group_by(month) %>%
+  summarise(dist = sum(distance))
+```
+
+Ahora por destino y resumen
+
+```{r chung39, include=TRUE}
+flights %>%
+    group_by(dest) %>%
+    summarise(flight_count = n(), plane_count = n_distinct(tailnum)) %>%
+    head()
+```
+
+Group by selct, filter, arrange
+
+```{r chung40, include=TRUE}
+flights %>%
+    group_by(carrier) %>%
+    select(month, day, dep_delay) %>%
+    filter(min_rank(desc(dep_delay)) <= 2 & dep_delay!="NA") %>%
+    arrange(carrier, desc(dep_delay)) %>%
+    head()
+```
+
+```{r chung41, include=TRUE}
+flights_latlon <- flights %>%
+  inner_join(select(airports, origin = faa, origin_lat = lat, origin_lon = lon),
+    by = "origin"
+  ) %>%
+  inner_join(select(airports, dest = faa, dest_lat = lat, dest_lon = lon),
+    by = "dest"
+  )
+```
+
+```{r chung42, include=TRUE}
+flights_latlon %>%
+  filter(origin == "JFK") %>%
+  ggplot(aes(
+    x = origin_lon, xend = dest_lon,
+    y = origin_lat, yend = dest_lat
+  )) +
+  borders("state") +
+  geom_segment(arrow = arrow(length = unit(0.1, "cm")), color = "orange") +
+  coord_quickmap() +
+  labs(y = "Latitude", x = "Longitude")
+```
+
+```{r chung43, include=TRUE}
+flights_latlon %>%
+  filter(dest %in% c("MIA", "FLL", "SFO", "CLT", "MCO", "BOS", "LAX", "ATL", "ORD")) %>%
+  ggplot(aes(
+    x = origin_lon, xend = dest_lon,
+    y = origin_lat, yend = dest_lat
+  )) +
+  borders("state") +
+  geom_segment(arrow = arrow(length = unit(0.1, "cm")), color = "orange") + 
+  coord_quickmap() +
+  labs(y = "Latitude", x = "Longitude")
+```
+
+```{r chung44, include=TRUE}
+flights_latlon %>%
+  slice(1:100) %>%
+  ggplot(aes(
+    x = origin_lon, xend = dest_lon,
+    y = origin_lat, yend = dest_lat
+  )) +
+  borders("state") +
+  geom_segment(arrow = arrow(length = unit(0.1, "cm")), color = "orange") +
+  coord_quickmap() +
+  labs(y = "Latitude", x = "Longitude")
+```
+
+```{r chung45, include=TRUE}
+library(echarts4r)
+```
+
+
+```{r chung47, include=TRUE}
+flights_daytime <- flights %>%
+  transmute(origin, daytime = case_when(
+    hour >= 22 & hour < 6 ~ "Night",
+    hour >= 6 & hour < 12 ~ "Morning",
+    hour >= 12 & hour < 18 ~ "Afternoon",
+    TRUE ~ "Evening"
+  )) %>%
+  count(origin, daytime) %>%
+  group_by(daytime)
+```
+
+
+```{r chung48, include=TRUE}
+flights_daytime %>%
+  e_charts(origin, stack = "grp") %>%
+  e_bar(n) %>%
+  e_tooltip(
+    trigger = "axis",
+    axisPointer = list(
+      type = "shadow"
+    )
+  ) %>%
+  e_title(
+    text = "Outgoing flights by time of day",
+    subtext = "There are no night flights"
+  ) %>%
+  e_y_axis(
+    splitArea = list(show = FALSE),
+    splitLine = list(show = FALSE)
+  )
+```
+
+```{r chung49, include=TRUE}
+set.seed(123)
+flights_sm <- flights %>% 
+  filter(complete.cases(.)) %>% 
+  sample_n(1000)
+ 
+flights_sm %>% 
+  e_charts(x = dep_delay) %>% 
+  e_scatter(arr_delay, name = "Flight") %>% 
+  e_lm(arr_delay ~ dep_delay, name = "Linear model") %>% 
+  e_axis_labels(x = "Departure delay", y = "Arrival delay") %>%
+  e_title(
+    text = "Arrival delay vs. departure delay",
+    subtext = "The later you start, the later you finish"
+  ) %>% 
+  e_x_axis(
+    nameLocation = "center", 
+    splitArea = list(show = FALSE),
+    axisLabel = list(margin = 3),
+    axisPointer = list(
+      show = TRUE, 
+      lineStyle = list(
+        color = "#999999",
+        width = 0.75,
+        type = "dotted"
+      )
+    )
+  ) %>% 
+  e_y_axis(
+    nameLocation = "center", 
+    splitArea = list(show = FALSE),
+    axisLabel = list(margin = 0),
+    axisPointer = list(
+      show = TRUE, 
+      lineStyle = list(
+        color = "#999999",
+        width = 0.75,
+        type = "dotted"
+      )
+    )
+  )
+```
+```{r chung50, include=TRUE}
+n_bins <- 100
+flights %>%
+  filter(complete.cases(.)) %>%
+  mutate(
+    arr_delay = cut(arr_delay, n_bins),
+    dep_delay = cut(dep_delay, n_bins)
+  ) %>%
+  count(arr_delay, dep_delay) %>%
+  e_charts(dep_delay) %>%
+  e_heatmap(arr_delay, n) %>%
+  e_visual_map(n) %>%
+  e_title("Arrival delay vs. departure delay") %>%
+  e_axis_labels("Departure delay", "Arrival delay")
+```
+
+```{r chung51, include=TRUE}
+pie <- count(flights, origin) %>%
+  e_charts(x = origin) %>%
+  e_pie(n, legend = FALSE, name = "Flights") %>%
+  e_tooltip() %>%
+  e_title("Flights by origin", "This is really hard with ggplot2")
+pie
+```
+
+
+```{r chung52, include=TRUE}
+flights_ts <- flights %>%
+  transmute(week = as.Date(cut(time_hour, "week")), dep_delay, origin) %>%
+  group_by(origin, week) %>% # works with echarts
+  summarise(dep_delay = sum(dep_delay, na.rm = TRUE))
+```
+```{r chung53, include=TRUE}
+ts_base <- flights_ts %>%
+  e_charts(x = week) %>%
+  e_datazoom(
+    type = "slider",
+    toolbox = FALSE,
+    bottom = -5
+  ) %>%
+  e_tooltip() %>%
+  e_title("Departure delays by airport") %>%
+  e_x_axis(week, axisPointer = list(show = TRUE))
+```
+
+
+```{r chung54, include=TRUE}
+ts_base %>% e_line(dep_delay)
+```
+
+```{r chung55, include=TRUE}
+flights_ts <- flights %>%
+  transmute(week = as.Date(cut(time_hour, "week")), dep_delay, origin) %>%
+  group_by(origin, week) %>% # works with echarts
+  summarise(dep_delay = sum(dep_delay, na.rm = TRUE))
+```
+
+
+```{r chung56, include=TRUE}
+area <- ts_base %>% e_area(dep_delay, stack = "grp")
+area
+```
+
+```{r chung57, include=TRUE}
+library(lubridate)
+flights_ts %>%
+  filter(origin == "JFK") %>%
+  group_by(month = month(week, label = TRUE)) %>%
+  e_charts(x = week, timeline = TRUE) %>%
+  e_bar(
+    dep_delay,
+    name = "Departure Delay",
+    symbol = "none",
+    legend = FALSE
+  )
+```
+
+```{r chung58, include=TRUE}
+flights %>%
+  select(dep_time, sched_dep_time, dep_delay, arr_time, sched_arr_time, arr_delay, air_time, distance,hour) %>%
+  na.omit() %>%
+  cor() %>%
+  e_charts() %>%
+  e_correlations(order = "hclust") %>%
+  e_tooltip()
+```
+
+```{r chung59, include=TRUE}
+df <- data.frame(
+  x = c(
+    rnorm(100),
+    runif(100, -5, 10),
+    rnorm(100, 10, 3)
+  ),
+  grp = c(
+    rep(LETTERS[1], 100),
+    rep(LETTERS[2], 100),
+    rep(LETTERS[3], 100)
+  )
+)
+ 
+df %>% 
+  group_by(grp) %>% 
+  e_charts() %>% 
+  e_boxplot(x)
+```
