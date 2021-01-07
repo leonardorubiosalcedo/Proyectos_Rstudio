@@ -1,0 +1,360 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+Analisis de texto 
+
+```{r}
+library(rwhatsapp)
+library(lubridate)
+library(tidyverse)
+library(tidytext)
+library(kableExtra)
+library(RColorBrewer)
+library(knitr)
+```
+
+se carga la conversacion de whatsap 
+```{r}
+miChat <- rwa_read("Chat_WhatsApp.txt")
+```
+
+se establece el tipo y se ponen en columnas algunos datos 
+```{r}
+miChat <- miChat %>% 
+ mutate(day = date(time)) %>% 
+ mutate(
+ # SEGMENTACIÓN POR SEMESTRE
+ semestre = case_when(
+ day >= ymd(20160101) & day <= ymd(20160630) ~ "Primero de 2016",
+ day >= ymd(20160701) & day <= ymd(20161231) ~ "Segundo de 2016",
+ day >= ymd(20170101) & day <= ymd(20170630) ~ "Primero de 2017",
+ day >= ymd(20170701) & day <= ymd(20171231) ~ "Segundo de 2017",
+ day >= ymd(20180101) & day <= ymd(20180630) ~ "Primero de 2018",
+ day >= ymd(20180701) & day <= ymd(20181231) ~ "Segundo de 2018",
+ day >= ymd(20190101) & day <= ymd(20190630) ~ "Primero de 2019",
+ day >= ymd(20190701) & day <= ymd(20191231) ~ "Segundo de 2019",
+ day >= ymd(20200101) & day <= ymd(20200630) ~ "Primero de 2020",
+ day >= ymd(20200701) & day <= ymd(20201231) ~ "Segundo de 2020",
+ T ~ "Fuera de rango")
+ ) %>% 
+ mutate( semestre = factor(semestre) ) %>% 
+ filter(!is.na(author))
+```
+
+```{r}
+view(miChat) 
+```
+
+```{r}
+paleta.semestres <- brewer.pal(8,"Set1")[c(7,5,1,3,4,2,6,8)]
+```
+
+```{r}
+miChat %>% 
+  group_by(semestre) %>% 
+  count(day) %>%
+  ggplot(aes(x = day, y = n, fill=semestre)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values=paleta.semestres) +
+  ylab("Número de mensajes") + xlab("Fecha") +
+  ggtitle("Mensajes por día", "Frecuencia por semestre del año") +
+  theme_minimal() +
+  theme( legend.title = element_blank(), 
+         legend.position = "right")
+```
+
+```{r}
+miChat %>% 
+ mutate( wday.num = wday(day),
+ wday.name = weekdays(day)) %>% 
+ group_by(semestre, wday.num, wday.name) %>% 
+ count() %>% 
+ ggplot(aes(x = reorder(wday.name, -wday.num), y = n, fill=semestre)) +
+ geom_bar(stat = "identity") +
+ scale_fill_manual(values=paleta.semestres) +
+ ylab("") + xlab("") +
+ coord_flip() +
+ ggtitle("Número de mensajes por día de la semana", "Frecuencia por semestre del año") +
+ theme_minimal() +
+ theme( legend.title = element_blank(), 
+ legend.position = "right")
+```
+
+```{r}
+diasemana <- c("domingo","lunes","martes","miércoles","jueves","viernes","sábado","domingo")
+names(diasemana) <- 1:7# MENSAJES POR HORA DEL DÍA
+miChat %>% 
+ mutate( hour = hour(time), 
+ wday.num = wday(day),
+ wday.name = weekdays(day)) %>% 
+ count(semestre, wday.num, wday.name, hour) %>% 
+ ggplot(aes(x = hour, y = n, fill=semestre)) +
+ geom_bar(stat = "identity") +
+ scale_fill_manual(values=paleta.semestres) +
+ ylab("Número de mensajes") + xlab("Horario") +
+ ggtitle("Número de mensajes por hora del día", "Frecuencia según semestre del año") +
+ facet_wrap(~wday.num, ncol=7, labeller = labeller(wday.num=diasemana))+
+ theme_minimal() +
+ coord_flip() +
+ theme( legend.title = element_blank(), 
+ legend.position = "right",
+ panel.spacing.x=unit(0.0, "lines"))
+```
+
+remplazo por autor 
+```{r}
+miChat <- miChat %>%
+  mutate(author = case_when(author == "Leonardo Rubio" ~ "Yo", author != "Leonardo Rubio" ~ "compañera"))
+glimpse(miChat)
+
+```
+
+Analsis por autor 
+```{r}
+miChat %>%
+  mutate(day = date(time)) %>%
+  group_by(semestre) %>% 
+  count(author) %>% 
+  ggplot(aes(x = reorder(author, n), y = n, fill=semestre)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values=paleta.semestres) +
+  ylab("Número total de mensajes") + xlab("Usuario") +
+  coord_flip() +
+  ggtitle("Número total de mensajes por usuario.", "¿Quién es más comunicativo? Frecuencia por estación del año") +
+  theme_minimal() +
+  theme( legend.title = element_blank(), 
+         legend.position = "right")
+```
+
+```{r}
+library(ggimage)
+```
+
+analisis de emogies
+```{r}
+plotEmojis <- miChat %>% 
+ unnest(emoji, emoji_name) %>% 
+ mutate( emoji = str_sub(emoji, end = 1)) %>% 
+ mutate( emoji_name = str_remove(emoji_name, ":.*")) %>% 
+ count(emoji, emoji_name) %>% 
+ 
+# PLOT TOP 30 EMOJIS
+ top_n(30, n) %>% 
+ arrange(desc(n)) %>% # CREA UNA URL DE IMAGEN CON EL UNICODE DE EMOJI
+ mutate( emoji_url = map_chr(emoji, 
+ ~paste0( "https://abs.twimg.com/emoji/v2/72x72/", as.hexmode(utf8ToInt(.x)),".png")) 
+ )
+```
+```{r}
+plotEmojis %>% 
+ ggplot(aes(x=reorder(emoji_name, n), y=n)) +
+ geom_col(aes(fill=n), show.legend = FALSE, width = .2) +
+ geom_point(aes(color=n), show.legend = FALSE, size = 3) +
+ geom_image(aes(image=emoji_url), size=.045) +
+ scale_fill_gradient(low="#2b83ba",high="#d7191c") +
+ scale_color_gradient(low="#2b83ba",high="#d7191c") +
+ ylab("Número de veces que el emoji fue usado") +
+ xlab("Emoji y significado") +
+ ggtitle("Emojis más utilizados de manera general", "Emojis más usados por todos") +
+ coord_flip() +
+ theme_minimal() +
+ theme()
+```
+
+```{r}
+plotEmojis <- miChat %>%
+ unnest(emoji, emoji_name) %>%
+ mutate( emoji = str_sub(emoji, end = 1)) %>% # 
+ count(author, emoji, emoji_name, sort = TRUE) %>%# PLOT DEL TOP 8 EMOJIS POR USUARIO
+ group_by(author) %>%
+ top_n(n = 8, n) %>%
+ slice(1:8) %>% 
+ # CREA UNA URL DE IMAGEN CON EL UNICODE DE EMOJI
+ mutate( emoji_url = map_chr(emoji, 
+ ~paste0("https://abs.twimg.com/emoji/v2/72x72/",as.hexmode(utf8ToInt(.x)),".png")) )
+```
+
+```{r}
+plotEmojis %>% 
+ ggplot(aes(x = reorder(emoji, -n), y = n)) +
+ geom_col(aes(fill = author, group=author), show.legend = FALSE, width = .20) +# USAR PARA HACER FETCH DE UNA IMAGEN PNG DE EMOJI https://abs.twimg.com
+ geom_image(aes(image=emoji_url), size=.13) +
+ ylab("Número de veces que se usó el emoji") +
+ xlab("Emoji") +
+ facet_wrap(~author, ncol = 5, scales = "free") +
+ ggtitle("Emojis más usados en la conversación, por usuario") +
+ theme_minimal() +
+ theme(axis.text.x = element_blank())
+
+```
+
+```{r}
+library(tidytext)
+library(stopwords)
+```
+
+```{r}
+remover_palabras <- c(stopwords(language = "pt"), "m", "the", "11", "1", "p", "20", "10", "05", "19", "5", "2", "to", "6", "c", "3", "7", "4", "00", "12", "18", "17", "03", "04", "f", "8", "x", "09", "50", "multimedia", "y", "la", "el", "en", "es", "si", "lo", "ya", "pero", "esa", "los", "yo", "mi", "un", "con", "las", "omitido", "más", "eso", "al", "una", "del", "qué", "todo", "así", "le", "su", "va", "porque", "todos", "hay", "les", "pue", "ese", "son", "está", "pues", "ahí", "sí", "ver", "estás", "algo", "vas", "ir", "voy", "creo", "fue", "solo", "ni", "sólo", "nada", "aqui", "q", "tú","ange","leo")
+```
+
+```{r}
+miChat %>%
+ unnest_tokens(input = text, output = word) %>%
+ filter(!word %in% remover_palabras) %>% 
+ count(word) %>% # PLOT DEL TOP 30 DE PALABRAS MÁS USADAS EN CONVERSACIÓN
+ top_n(30,n) %>% 
+ arrange(desc(n)) %>% 
+ ggplot(aes(x=reorder(word,n), y=n, fill=n, color=n)) +
+ geom_col(show.legend = FALSE, width = .1) +
+ geom_point(show.legend = FALSE, size = 3) +
+ scale_fill_gradient(low="#2b83ba",high="#d7191c") +
+ scale_color_gradient(low="#2b83ba",high="#d7191c") +
+ ggtitle("Palabras más usadas en la conversación de manera general") +
+ xlab("Palabras") +
+ ylab("Número de veces que se usó la palabra") +
+ coord_flip() +
+ theme_minimal()
+```
+
+```{r}
+miChat %>%
+ unnest_tokens(input = text,
+ output = word) %>%
+ filter(!word %in% remover_palabras) %>%
+ count(author, word, sort = TRUE) %>%
+ 
+# TOP 20 PALABRAS MÁS USADAS POR USUARIO
+ group_by(author) %>%
+ top_n(n = 20, n) %>%
+ slice(1:20) %>%
+ ungroup() %>% 
+ arrange(author, desc(n)) %>% 
+ mutate(order=row_number()) %>% 
+ ggplot(aes(x = reorder(word, n), y = n, fill = author, color = author)) +
+ geom_col(show.legend = FALSE, width = .1) +
+ geom_point(show.legend = FALSE, size = 3) +
+ xlab("Palabras") +
+ ylab("Número de veces que se usó la palabra") +
+ coord_flip() +
+ facet_wrap(~author, ncol = 3, scales = "free") +
+ ggtitle("Palabras más usadas por usuario en la conversación") +
+ theme_minimal()
+```
+
+```{r}
+miChat %>%
+  unnest_tokens(input = text,
+                output = word) %>%
+  filter(!word %in% remover_palabras) %>%
+  group_by(author) %>%
+  summarise(lex_diversity = n_distinct(word)) %>%
+  arrange(desc(lex_diversity)) %>%
+  ggplot(aes(x = reorder(author, lex_diversity),
+             y = lex_diversity,
+             fill = author)) +
+  geom_col(show.legend = FALSE) +
+  scale_y_continuous(expand = (mult = c(0, 0, 0, 500))) +
+  geom_text(aes(label = scales::comma(lex_diversity)), hjust = -0.1) +
+  ylab("Diversidad léxica") +
+  xlab("Usuario") +
+  ggtitle("Diversidad de léxico en la conversación") +
+  coord_flip()
+```
+
+```{r}
+palabras_unicas_el <- miChat %>%
+  unnest_tokens(input = text,
+                output = word) %>%
+  filter(!word %in% remover_palabras, author != "compañera") %>%  
+  count(word, sort = TRUE)
+
+miChat %>%
+  unnest_tokens(input = text,
+                output = word) %>%
+  filter(!word %in% remover_palabras, author == "compañera") %>% 
+  count(word, sort = TRUE) %>% 
+  filter(!word %in% palabras_unicas_el$word) %>% 
+  
+# SELECCIONAR SÓLO PALABRAS QUE NADIE MÁS USA
+  top_n(n = 15, n) %>%
+  ggplot(aes(x = reorder(word, n), y = n)) +
+  geom_col(show.legend = FALSE) +
+  ylab("Número de veces que se usó la palabra") + xlab("Palabras") +
+  coord_flip() +
+  ggtitle("Top de palabras únicas usadas por el Profesorl")
+```
+
+
+```{r}
+library(rvest)
+```
+
+```{r}
+url_base <- "http://kt.ijs.si/data/Emoji_sentiment_ranking/index.html"
+doc <- read_html(url_base)# BUSCAR TABLA DE EMOJI Y PROCESO
+tabla_emojis <- doc %>% 
+  html_node("#myTable") %>% 
+  html_table() %>% 
+  as_tibble()
+```
+
+```{r}
+sentimiento_emoji <- tabla_emojis %>% 
+  select(1,6:9) %>% 
+  set_names("char", "negativo","neutral","positivo","sent.score")
+```
+
+```{r}
+emoji_chat <- miChat %>% 
+  unnest(c(emoji, emoji_name)) %>% 
+  mutate( emoji = str_sub(emoji, end = 1)) %>% 
+  inner_join(sentimiento_emoji, by=c("emoji"="char"))
+```
+
+```{r}
+emoji_chat %>% 
+  select(-source, -day, -semestre) %>%
+  slice(c(1,n())) %>% 
+  kable() %>% 
+  kable_styling(font_size = 10)
+```
+
+```{r}
+set_names
+library(purrr)
+```
+
+```{r}
+emoji_sentimiento_usuarios <- emoji_chat %>% 
+  group_by(author) %>% 
+  summarise(
+    positivo=mean(positivo),
+    negativo=mean(negativo),
+    neutral=mean(neutral),
+    balance=mean(sent.score)
+  ) %>% 
+  arrange(desc(balance))
+```
+
+
+```{r}
+emoji_sentimiento_usuarios %>% 
+  mutate( negativo  = -negativo,
+          neutral.positivo =  neutral/2,
+          neutral.negativo = -neutral/2) %>% 
+  select(-neutral) %>% 
+  gather("sentiment","mean", -author, -balance) %>% 
+  mutate(sentiment = factor(sentiment, levels = c("negativo", "neutral.negativo", "positivo", "neutral.positivo"), ordered = T)) %>% 
+  ggplot(aes(x=reorder(author,balance), y=mean, fill=sentiment)) +
+  geom_bar(position="stack", stat="identity", show.legend = F, width = .5) +
+  scale_fill_manual(values = brewer.pal(4,"RdYlGn")[c(1,2,4,2)]) +
+  ylab(" - Negativo / Neutral / Positivo +") + xlab("Usuario") +
+  ggtitle("Análisis de sentimientos por usuario","Basado en el puntaje promedio de sentimientos por emojis") +
+  coord_flip() +
+  theme_minimal()
+```
+
