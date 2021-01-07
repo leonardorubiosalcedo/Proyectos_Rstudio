@@ -6,6 +6,8 @@ output:
     vertical_layout: fill
 runtime: shiny
 ---
+Link de publicacion 
+"http://127.0.0.1:3869/Dashboard_flexdashboard.Rmd"
 
 ```{r global, include=FALSE}
 library(flexdashboard)
