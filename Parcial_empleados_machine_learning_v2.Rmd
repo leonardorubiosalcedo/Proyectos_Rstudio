@@ -1,0 +1,188 @@
+---
+title: ' Machine learning Probabilistico'
+author: "Leonardo Rubio y Angela Villate"
+date: "27/10/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Parcial Machine learning Probabilistico 
+
+Cargamos la data que describe datos laborales de empleados de una f?brica. Contamos con informaci?n de caracterizaci?n e informaci?n laboral: fecha de ingreso, retiro, salario. El modelo se propone, a aprtir de estos datos generar el pron?stico del retiro de los empleados.
+```{r  chung1, include=TRUE}
+library(readxl)
+df_empleados <- read_excel ("C:/Users/ASUS/Downloads/df_empleados.xlsx")
+head(df_empleados)
+```
+
+Realizamos la limpieza de los datos: en este paso se revisaron los datos, se identificaron los espacios vac?os y se les asign? una categor?a. As? mismo se estandarizaron los valores
+para poder tener una lectura m?s clara.
+```{r chung2, include=TRUE}
+#library(plyr)
+#library(h2o)
+#revalue(df_empleados$`ID Estado civil`, c(`0` = "ND", `NO DEFINIDO` = "ND"))
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "0"] = "ND"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "NO DEFINIDO"] = "ND"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "CASADO"] = "CAS"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "DIVORCIADO"] = "DIV"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "SEPARADO"] = "SEP"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "SOLTERO"] = "SOL"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "UNION LIBRE"] = "UNI"
+df_empleados$`ID Estado civil`[df_empleados$`ID Estado civil` == "VIUDO"] = "VIU"
+```
+
+```{r chung3, include=TRUE}
+df_empleados$ano_nacimiento <-as.integer(format(df_empleados$`Fecha nacimiento`, "%Y")) 
+df_empleados$ano_ingreso <-as.integer(format(df_empleados$`Fecha ingreso`, "%Y")) 
+```
+
+Aqu? contamos con una visualizaci?n delos datos estandarizados.
+```{r chung4, include=TRUE}
+head(df_empleados)
+```
+
+
+Realizaremos una limpieza de los datos, quitando los campos vacios y los que se creen son poco significantes en el modelo. 
+
+
+
+Cargamos los daos de los retiros de los empleados 
+```{r chung5, include=TRUE}
+library(readxl)
+df_retiros <- read_excel("C:/Users/ASUS/Downloads/df_retiros.xlsx")
+head(df_retiros)
+```
+Verificamos los datos de retiros repetidos para evitar sesgos o sobreajustes en el modelo.
+
+```{r chung6, include=TRUE}
+library("dplyr")          ## load
+repetidos <-  df_retiros %>% 
+group_by(Cedula_anonimizada) %>%   
+summarize(retiro = sum(retiro, na.rm = TRUE)) %>% 
+filter(!is.na(retiro))
+
+repetidos %>% select(Cedula_anonimizada,retiro) %>%
+             filter(retiro > 1 )
+```
+
+
+
+```{r chung7, include=TRUE}
+df_retiros$ano_fin_contrato <-as.integer(format(df_retiros$`FECHA FIN CONTRATO`, "%Y")) 
+```
+
+
+Establecemos la union de las dos bases: la de retiros y c?dulas anonimizadas.
+```{r chung8, include=TRUE}
+datos_join1 <- right_join(df_retiros, df_empleados ,by = "Cedula_anonimizada")
+head(datos_join1)
+```
+
+```{r chung9, include=TRUE}
+datos_join1$retiro[is.na(datos_join1$retiro) ] = 0
+datos_join1$ano_fin_contrato[is.na(datos_join1$ano_fin_contrato) ] = 2020
+
+#datos_join1$retiro <- datos_join1$retiro %>% replace_na(0)
+#datos_join1$retiro <- revalue(datos_join1$retiro, c(NA=0))
+head(datos_join1)
+
+
+
+```
+
+Ahora, generamos la agrupacion de los empleados con las categorias seleccionadas para la construcci?n del modelo predictivo. 
+
+```{r chung10, include=TRUE}
+data_agrupada <- datos_join1 %>% group_by(Cedula_anonimizada) %>% 
+  summarise(
+            fecha_maxima = max(Fecha), 
+            causa_max=max(`CAUSA NOMBRE`),
+            tipo_retiro_max = max(`TIPO DE RETIRO`) ,
+            fecha_fin_max=max(`FECHA FIN CONTRATO`), 
+            retiro_max = max(retiro), genero_max = max(`ID Genero`) , 
+            estado_civil_max = max(`ID Estado civil`), 
+            cargo_count = max(`Tipo cargo`), 
+            nivel_max = max(`Nivel cargo`),
+            area_max= max(`Tipo area`),  
+            salario_max = max(`Total salario`),
+            salario_min = min(`Total salario`),
+            ano_nacimiento = max(ano_nacimiento), 
+            ano_ingreso   = max(ano_ingreso),
+            ano_fin_contrato = max(ano_fin_contrato),
+            conteo_nomina = n())
+head(data_agrupada)
+```
+
+```{r chung11, include=TRUE}
+
+data_agrupada$anos_trabajados <- (data_agrupada$ano_fin_contrato - data_agrupada$ano_ingreso) 
+data_agrupada$anos_ingreso  <- (data_agrupada$ano_ingreso - data_agrupada$ano_nacimiento)
+data_agrupada$dif_salario  <- (data_agrupada$salario_max - data_agrupada$salario_min)
+
+data_agrupada$anos_trabajados[is.na(data_agrupada$anos_trabajados) ] = round((data_agrupada$conteo_nomina / 12),0)
+data_agrupada$anos_ingreso[is.na(data_agrupada$anos_ingreso) ] = 20
+
+```
+
+```{r chung12, include=TRUE}
+data_modelo <-   data_agrupada %>% select (retiro_max, genero_max,estado_civil_max,conteo_nomina,anos_trabajados,anos_ingreso,dif_salario, Cedula_anonimizada)
+data_modelo$genero_max[is.na(data_modelo$genero_max) ] = "ND"
+data_modelo$estado_civil_max[is.na(data_modelo$estado_civil_max) ] = "ND"
+head(data_modelo)
+```
+
+## Regresion 
+
+Como modelo hemos seleccionado el de regresi?n. Para eso,  particionamos la data en  entrenamiento y el testeo: "variables train y test". 
+
+```{r chung13, include=TRUE}
+indica_train <- sample(nrow(data_modelo), round(0.7 * nrow(data_modelo)))
+train <- data_modelo[indica_train,]
+test <- data_modelo[-indica_train,]
+```
+
+
+Por considerarse buena pr?ctica, verificamos el balanceo de las muestras, con eso continuamos verificando que los datos con los que estamos trabajando sean indicativos al momento de hacer la predicci?n.
+```{r chung14, include=TRUE}
+train %>% group_by(retiro_max) %>%  summarise(conteo = n())
+
+```
+
+
+```{r chung15, include=TRUE}
+test %>% group_by(retiro_max) %>%  summarise(conteo = n())
+```
+
+
+
+Teniendo los datos agrupados y depurados realizaremos los modelos 
+```{r chung16, include=TRUE}
+M1 <- glm(retiro_max ~ (conteo_nomina + anos_trabajados + anos_ingreso + dif_salario) * (genero_max + estado_civil_max) ,data = train, family = "gaussian") 
+# Clasificar en setosa si probs >= 0,5
+```
+
+A continuaci?n generamos la matriz de confusi?n del modelo, en la que podemos ver la forma en la que clasifica los datos: verdaderos postitivos, verdaderos negativos, falsos positivos y falsos negativos. Por lo que nos muestra el modelo podemos concluir que hay un ajuste entre la sensibilidad, precisi?n y exactitud. 
+```{r chung17, include=TRUE}
+test$probs <- predict(M1, test, type = "response")
+test$yhat <- ifelse(test$probs >= 0.5, 1, 0)
+table(test$retiro_max, test$yhat)
+mc <- table(test$retiro_max, test$yhat)
+```
+
+A continuaci?n, podemos observar el accuracy del modelo
+```{r chung18, include=TRUE}
+sum(diag(mc)) / sum(mc) # 
+```
+En este paso generamos los datos del pron?stico. 
+```{r chung19, include=TRUE}
+test$probs=round(test$probs, 3)
+pronosticos <- test %>% select(Cedula_anonimizada,retiro_max,probs,yhat)
+head(pronosticos)
+```
+
+Mostramos los atributos de salida
+```{r chung21, include=TRUE}
+summary(datos_join1)
+```
+
